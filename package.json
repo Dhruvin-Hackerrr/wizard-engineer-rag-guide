@@ -1,0 +1,31 @@
+{
+  "name": "wizard-engineer-rag-guide",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@langchain/cohere": "^1.1.0",
+    "@langchain/community": "^1.1.29",
+    "@langchain/core": "^1.2.2",
+    "@langchain/pinecone": "^1.0.3",
+    "cheerio": "^1.2.0",
+    "dotenv": "^16.6.1",
+    "express": "^5.2.1",
+    "langchain": "^1.5.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.1.1",
+    "tsx": "^4.23.0",
+    "typescript": "^5.8.3"
+  }
+}
