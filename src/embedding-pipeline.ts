@@ -1,4 +1,6 @@
-import { Document } from '@langchain/core/documents'
+/**
+ * This is separate branch which implement only simple embedding-pipeline.
+ */
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { CohereEmbeddings } from "@langchain/cohere";
 import { PineconeStore } from '@langchain/pinecone';
