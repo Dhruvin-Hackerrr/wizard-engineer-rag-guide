@@ -13,6 +13,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@langchain/cerebras": "^1.0.4",
     "@langchain/cohere": "^1.1.0",
     "@langchain/community": "^1.1.29",
     "@langchain/core": "^1.2.2",
@@ -20,7 +21,8 @@
     "cheerio": "^1.2.0",
     "dotenv": "^16.6.1",
     "express": "^5.2.1",
-    "langchain": "^1.5.3"
+    "langchain": "^1.5.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
