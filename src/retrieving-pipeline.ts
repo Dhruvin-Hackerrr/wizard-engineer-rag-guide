@@ -7,6 +7,7 @@ import { Document } from "@langchain/core/documents";
 import { z } from "zod";
 
 import * as dotenv from 'dotenv';
+import { queryMultiVector } from "./multi-vector-retriever.js";
 
 dotenv.config();
 
@@ -37,7 +38,7 @@ export async function queryVectorDB(query : string) {
     return result
 }
 
-const query = "Types of prompt engineering"
+const query = "What is Chain-of-Thought (CoT)?"
 
 const QUERY_TRANSFORMATION_PROMPT = PromptTemplate.fromTemplate(
     `
@@ -91,7 +92,7 @@ const questions = generatedQuestions?.questions
 
 const retrieviedDocs=[]
 for(const question of questions){
-    const result = await queryVectorDB(question)
+    const result = await queryMultiVector(question, 'doc1')
     retrieviedDocs.push(result)
 }
 
@@ -106,3 +107,16 @@ const aiResponse = await chain2.invoke({
 })
 
 console.log('AI Response :', aiResponse)
+
+const doc = new Document({
+    pageContent: "data....",
+    metadata: {
+        source : "",
+        url : "",
+        pageNumber : ""
+    }
+})
+
+function fetchDocsFromVector(userId : string, query : string){
+    
+}

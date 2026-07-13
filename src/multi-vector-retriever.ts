@@ -3,10 +3,13 @@ import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { CohereEmbeddings } from "@langchain/cohere";
 import { PineconeStore } from '@langchain/pinecone';
 import { Pinecone as PineconeClient } from '@pinecone-database/pinecone'
+import { ChatCerebras } from '@langchain/cerebras'
+import { LLMChainExtractor } from '@langchain/classic/retrievers/document_compressors/chain_extract'   
 
 import { CheerioWebBaseLoader } from '@langchain/community/document_loaders/web/cheerio';
 import * as dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
+import { ContextualCompressionRetriever } from '@langchain/classic/retrievers/contextual_compression'
 
 dotenv.config()
 
@@ -59,14 +62,13 @@ async function createChildDocs(parentDocs : Document[], docId : string){
     const childSplits = await childSplitter.splitDocuments(parentDocs)
 
     return childSplits.map((doc, i) => {
-        // Get Parent metadata for this child 
-        const parentIndex = Math.floor(i / 4)
-        const parentMetadata = parentDocs[parentIndex]?.metadata
+        // LangChain's splitter copies parent metadata (including chunkId) to the child splits.
+        const parentChunkId = doc.metadata.chunkId;
 
         doc.metadata.docType = "child";
-        doc.metadata.parentId = parentMetadata?.chunkId;
+        doc.metadata.parentId = parentChunkId;
 
-        doc.metadata.chunkId = `child-${parentMetadata?.chunkId}-${i}`;
+        doc.metadata.chunkId = `child-${parentChunkId}-${i}`;
         doc.metadata.source = doc.metadata.chunkId;
         doc.metadata.id = docId
 
@@ -122,21 +124,49 @@ export async function queryMultiVector(query : string, docId : string){
     
     const vectorStore = new PineconeStore(embeddings, { pineconeIndex, maxConcurrency: 5 })
 
+    console.log("1. Querying child documents from Pinecone...");
     const childDocs = await vectorStore.similaritySearch(query, 10,
         { docType : "child", id : docId}
     )
+    console.log(`   Found ${childDocs.length} child documents.`);
 
     const parentChunkIds = [...new Set(childDocs.map((doc) => doc.metadata.parentId))]
     const filteredChunkIds = parentChunkIds.filter((id : string) => id !== undefined && id !== null)
+    console.log(`   Found ${filteredChunkIds.length} unique parent document IDs.`);
 
-    const parentDocs = await vectorStore.similaritySearch(query, kParents,
-        {
-            docType : "parent",
-            source : { $in : filteredChunkIds }
-        }
+    // const parentDocs = await vectorStore.similaritySearch(query, kParents,
+    //     {
+    //         docType : "parent",
+    //         source : { $in : filteredChunkIds }
+    //     }
+    // )
+
+    console.log("2. Initializing Cerebras LLM Compressor...");
+    const compressor = LLMChainExtractor.fromLLM(
+        new ChatCerebras({
+            model: "gpt-oss-120b",
+            temperature: 0,
+            maxRetries: 2,
+            apiKey: process.env.CEREBRAS_API_KEY as string
+        })
     )
 
-    return parentDocs
+    const retriever = new ContextualCompressionRetriever({
+        baseCompressor: compressor,
+        baseRetriever : vectorStore.asRetriever({
+            k: kParents,
+            filter: {
+                docType : "parent",
+                source : {$in : filteredChunkIds}
+            }
+        })
+    })
+
+    console.log(`3. Invoking retriever (Compressing ${Math.min(kParents, filteredChunkIds.length)} parent documents via Cerebras LLM)...`);
+    const retrieviedDocs = await retriever.invoke(query)
+    console.log(`   Retrieved ${retrieviedDocs.length} compressed documents successfully.`);
+
+    return retrieviedDocs
 }
 
 // await docEmbeddingMultiVector(["https://lilianweng.github.io/posts/2023-03-15-prompt-engineering/"], "doc1")
@@ -145,7 +175,7 @@ const formatDocumentAsString = (documents : Document[]) => {
     return documents.map((doc) => doc?.pageContent).join("\n\n")
 }
 
-const result = await queryMultiVector("What is prompt engineering?", "doc1")
+const result = await queryMultiVector("What are the different types of prompt engineering techniques?", "doc1")
 
 const docToString = formatDocumentAsString(result)
 
